@@ -33,9 +33,9 @@ export function Markets() {
   const asset = markets[selectedPair];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-8rem)]">
+    <div className="flex flex-col lg:grid lg:grid-cols-4 gap-6 lg:h-[calc(100vh-8rem)]">
       {/* Left Sidebar - Markets List */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-col overflow-hidden">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-col overflow-hidden h-[400px] lg:h-full">
         <div className="p-4 border-b border-zinc-800">
           <div className="flex items-center gap-2 mb-4">
             <Globe className="w-5 h-5 text-emerald-400" />
@@ -77,7 +77,7 @@ export function Markets() {
       </div>
 
       {/* Center & Right - Market Overview */}
-      <div className="lg:col-span-3 flex flex-col gap-6 overflow-y-auto pr-2">
+      <div className="lg:col-span-3 flex flex-col gap-6 lg:overflow-y-auto lg:pr-2">
         
         {/* Header Stats */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
