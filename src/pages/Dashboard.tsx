@@ -110,7 +110,7 @@ export function Dashboard() {
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="time" hide />
-                <YAxis domain={['auto', 'auto']} hide />
+                <YAxis domain={['dataMin', 'dataMax']} hide />
                 <Tooltip 
                   isAnimationActive={false}
                   contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}

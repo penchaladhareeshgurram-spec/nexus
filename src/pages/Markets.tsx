@@ -1,7 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { useMarkets, useChartData, useOrderBook } from '../hooks/useMarkets';
-import { ArrowUpRight, ArrowDownRight, Search, Globe, Activity, BarChart3, Layers } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { ArrowUpRight, ArrowDownRight, Search, Globe, Activity, BarChart3, Layers, Pencil, Minus, Trash2 } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
+
+type DrawingType = 'trendline' | 'horizontal';
+interface Drawing {
+  id: string;
+  type: DrawingType;
+  points: { time: string; price: number }[];
+}
 
 const TIMEFRAMES = [
   { label: '15m', value: '15m' },
@@ -17,6 +24,12 @@ export function Markets() {
   const [search, setSearch] = useState('');
   const [timeframe, setTimeframe] = useState('1h');
   
+  // Drawing state
+  const [drawings, setDrawings] = useState<Drawing[]>([]);
+  const [activeTool, setActiveTool] = useState<DrawingType | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [currentDrawing, setCurrentDrawing] = useState<Drawing | null>(null);
+  
   const { history, loading: chartLoading } = useChartData(selectedPair, timeframe);
   const { orderBook, loading: orderBookLoading } = useOrderBook(selectedPair);
 
@@ -31,6 +44,36 @@ export function Markets() {
   }
 
   const asset = markets[selectedPair];
+
+  const handleChartClick = (e: any) => {
+    if (!activeTool || !e || !e.activeLabel || !e.activePayload) return;
+    
+    const time = e.activeLabel;
+    const price = e.activePayload[0].value;
+
+    if (activeTool === 'horizontal') {
+      setDrawings(prev => [...prev, { id: Date.now().toString(), type: 'horizontal', points: [{ time, price }] }]);
+      setActiveTool(null);
+    } else if (activeTool === 'trendline') {
+      if (!isDrawing) {
+        setIsDrawing(true);
+        setCurrentDrawing({ id: Date.now().toString(), type: 'trendline', points: [{ time, price }, { time, price }] });
+      } else {
+        setIsDrawing(false);
+        setDrawings(prev => [...prev, { ...currentDrawing!, points: [currentDrawing!.points[0], { time, price }] }]);
+        setCurrentDrawing(null);
+        setActiveTool(null);
+      }
+    }
+  };
+
+  const handleChartMouseMove = (e: any) => {
+    if (isDrawing && currentDrawing && e && e.activeLabel && e.activePayload) {
+      const time = e.activeLabel;
+      const price = e.activePayload[0].value;
+      setCurrentDrawing({ ...currentDrawing, points: [currentDrawing.points[0], { time, price }] });
+    }
+  };
 
   return (
     <div className="flex flex-col lg:grid lg:grid-cols-4 gap-6 lg:h-[calc(100vh-8rem)]">
@@ -120,12 +163,53 @@ export function Markets() {
         </div>
 
         {/* Chart Section */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-col overflow-hidden min-h-[400px]">
-          <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-zinc-100 font-medium">
-              <BarChart3 className="w-5 h-5 text-emerald-400" />
-              Price Chart
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-col overflow-hidden h-[500px]">
+          <div className="p-4 border-b border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-zinc-100 font-medium">
+                <BarChart3 className="w-5 h-5 text-emerald-400" />
+                Price Chart
+              </div>
+              
+              {/* Drawing Tools */}
+              <div className="flex items-center gap-1 bg-zinc-950 rounded-lg p-1 border border-zinc-800">
+                <button
+                  onClick={() => {
+                    setActiveTool(activeTool === 'trendline' ? null : 'trendline');
+                    setIsDrawing(false);
+                    setCurrentDrawing(null);
+                  }}
+                  className={`p-1.5 rounded-md transition-colors ${activeTool === 'trendline' ? 'bg-zinc-800 text-emerald-400' : 'text-zinc-400 hover:text-zinc-200'}`}
+                  title="Draw Trendline"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTool(activeTool === 'horizontal' ? null : 'horizontal');
+                    setIsDrawing(false);
+                    setCurrentDrawing(null);
+                  }}
+                  className={`p-1.5 rounded-md transition-colors ${activeTool === 'horizontal' ? 'bg-zinc-800 text-emerald-400' : 'text-zinc-400 hover:text-zinc-200'}`}
+                  title="Draw Support/Resistance"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setDrawings([]);
+                    setIsDrawing(false);
+                    setCurrentDrawing(null);
+                    setActiveTool(null);
+                  }}
+                  className="p-1.5 rounded-md text-zinc-400 hover:text-red-400 transition-colors"
+                  title="Clear All Drawings"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
+
             <div className="flex bg-zinc-950 rounded-lg p-1 border border-zinc-800">
               {TIMEFRAMES.map(tf => (
                 <button
@@ -141,12 +225,17 @@ export function Markets() {
             </div>
           </div>
           
-          <div className="flex-1 p-6">
+          <div className="flex-1 p-6 relative">
             {chartLoading ? (
-              <div className="flex items-center justify-center h-full text-zinc-500">Loading chart data...</div>
+              <div className="absolute inset-0 flex items-center justify-center text-zinc-500">Loading chart data...</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={history}>
+                <AreaChart 
+                  data={history}
+                  onClick={handleChartClick}
+                  onMouseMove={handleChartMouseMove}
+                  style={{ cursor: activeTool ? 'crosshair' : 'default' }}
+                >
                   <defs>
                     <linearGradient id="colorPriceTrade" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={asset?.change24h >= 0 ? '#34d399' : '#f87171'} stopOpacity={0.3}/>
@@ -163,7 +252,7 @@ export function Markets() {
                     minTickGap={30}
                   />
                   <YAxis 
-                    domain={['auto', 'auto']} 
+                    domain={['dataMin', 'dataMax']} 
                     stroke="#52525b" 
                     fontSize={12} 
                     tickLine={false} 
@@ -177,6 +266,19 @@ export function Markets() {
                     contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}
                     itemStyle={{ color: asset?.change24h >= 0 ? '#34d399' : '#f87171' }}
                   />
+                  
+                  {/* Render Drawings */}
+                  {drawings.map(d => (
+                    d.type === 'horizontal' ? (
+                      <ReferenceLine key={d.id} y={d.points[0].price} stroke="#3b82f6" strokeWidth={2} strokeDasharray="3 3" />
+                    ) : (
+                      <ReferenceLine key={d.id} segment={[{ x: d.points[0].time, y: d.points[0].price }, { x: d.points[1].time, y: d.points[1].price }]} stroke="#eab308" strokeWidth={2} />
+                    )
+                  ))}
+                  {currentDrawing && currentDrawing.type === 'trendline' && (
+                    <ReferenceLine segment={[{ x: currentDrawing.points[0].time, y: currentDrawing.points[0].price }, { x: currentDrawing.points[1].time, y: currentDrawing.points[1].price }]} stroke="#eab308" strokeWidth={2} strokeDasharray="3 3" />
+                  )}
+
                   <Area 
                     type="monotone" 
                     dataKey="price" 

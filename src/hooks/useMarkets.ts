@@ -108,6 +108,12 @@ export function useChartData(symbol: string, interval: string = '1h') {
       .then(data => {
         if (!isMounted) return;
         
+        if (!Array.isArray(data)) {
+          console.error("Invalid chart data received:", data);
+          setLoading(false);
+          return;
+        }
+
         const formattedData = data.map((k: any) => {
           const date = new Date(k[0]);
           const timeStr = ['1d', '1w', '1M'].includes(interval) 
